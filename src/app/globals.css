@@ -1,26 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;500;700;900&family=Roboto:wght@400;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0f;
+  --foreground: #ffffff;
+  --primary: #00ffcc;
+  --glass-bg: rgba(20, 20, 25, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary: var(--primary);
+  --font-orbitron: "Orbitron", sans-serif;
+  --font-outfit: "Outfit", sans-serif;
+  --font-roboto: "Roboto", sans-serif;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image: 
+      radial-gradient(circle at 15% 50%, rgba(0, 255, 204, 0.08), transparent 25%),
+      radial-gradient(circle at 85% 30%, rgba(255, 0, 128, 0.05), transparent 25%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-family: var(--font-outfit);
 }
+
+/* Glassmorphism utilities */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Table styles */
+.table-header {
+  display: grid;
+  grid-template-columns: 0.5fr 1.5fr 1.5fr 1fr;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--glass-border);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: #888899;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 0.5fr 1.5fr 1.5fr 1fr;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  align-items: center;
+  transition: background 0.3s ease;
+}
+
+.table-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rank-1 .rank-num { color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); font-size: 24px; }
+.rank-2 .rank-num { color: #c0c0c0; text-shadow: 0 0 10px rgba(192, 192, 192, 0.5); font-size: 20px;}
+.rank-3 .rank-num { color: #cd7f32; text-shadow: 0 0 10px rgba(205, 127, 50, 0.5); font-size: 20px;}
+
+.time-val {
+  color: var(--primary);
+  font-family: var(--font-orbitron);
+  font-weight: 700;
+  font-size: 20px;
+  text-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
+}
+
+/* Tab styles */
+.tab-btn {
+  padding: 12px 24px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--glass-border);
+  color: #888899;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.tab-btn.active {
+  background: rgba(0, 255, 204, 0.1);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+}
+
+.spinner {
+  width: 24px; height: 24px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
