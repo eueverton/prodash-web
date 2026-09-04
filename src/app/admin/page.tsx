@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { UploadCloud, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
+import { UploadCloud, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminPage() {
@@ -58,10 +58,13 @@ export default function AdminPage() {
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       
-    } catch (err: any) {
-      setErrorMsg(err.message);
-      // Se a senha estiver errada lá no server, desloga aqui
-      if (err.message.includes("Senha")) setIsAuthenticated(false);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setErrorMsg(err.message);
+        if (err.message.includes("Senha")) setIsAuthenticated(false);
+      } else {
+        setErrorMsg("Erro desconhecido");
+      }
     } finally {
       setLoading(false);
     }

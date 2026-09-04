@@ -23,11 +23,7 @@ export default function Leaderboard() {
   const [data, setData] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchRanking(activeTab);
-  }, [activeTab]);
-
-  async function fetchRanking(modalidade: string) {
+  const fetchRanking = async (modalidade: string) => {
     setLoading(true);
     try {
       const { data: rankingData, error } = await supabase
@@ -44,7 +40,11 @@ export default function Leaderboard() {
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  useEffect(() => {
+    fetchRanking(activeTab);
+  }, [activeTab]);
 
   return (
     <>

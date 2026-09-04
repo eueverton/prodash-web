@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, message: `V${version} implantada com sucesso!` });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("API Error:", err);
     return NextResponse.json({ error: "Erro interno no servidor Vercel." }, { status: 500 });
   }
