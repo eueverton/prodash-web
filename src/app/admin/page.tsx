@@ -22,6 +22,7 @@ export default function AdminPage() {
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentOtaVersion, setCurrentOtaVersion] = useState<number | null>(null);
+  const [otaHistory, setOtaHistory] = useState<any[]>([]);
 
   // Ranking State
   const [rankingData, setRankingData] = useState<any[]>([]);
@@ -40,6 +41,12 @@ export default function AdminPage() {
     try {
       const { data } = await supabase.from("firmware_updates").select("version").eq("id", 1).single();
       if (data) setCurrentOtaVersion(data.version);
+      
+      const { data: historyData } = await supabase.storage.from("firmwares").list();
+      if (historyData) {
+        historyData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setOtaHistory(historyData);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -152,14 +159,34 @@ export default function AdminPage() {
 
             {activeTab === "ota" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* OTA Status Panel */}
-                <div className="glass-panel p-8 flex flex-col items-center justify-center text-center">
-                  <Cpu size={60} className="text-primary/50 mb-4" />
-                  <h2 className="text-xl font-orbitron font-bold text-white mb-2">VERSÃO ATUAL (PRODUÇÃO)</h2>
-                  <div className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-primary">
-                    v{currentOtaVersion || "--"}
+                {/* OTA Status & History Panel */}
+                <div className="glass-panel flex flex-col overflow-hidden">
+                  <div className="p-8 flex flex-col items-center justify-center text-center border-b border-white/5">
+                    <Cpu size={50} className="text-primary/50 mb-4" />
+                    <h2 className="text-lg font-orbitron font-bold text-white mb-2">VERSÃO ATUAL (PRODUÇÃO)</h2>
+                    <div className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-primary">
+                      v{currentOtaVersion || "--"}
+                    </div>
                   </div>
-                  <p className="text-sm text-white/50 mt-4">Todos os painéis baixarão esta versão ao se conectar no Wi-Fi.</p>
+                  
+                  <div className="p-4 bg-black/30 flex-1 overflow-y-auto max-h-[300px]">
+                    <h3 className="text-xs uppercase tracking-widest text-white/50 mb-4 text-center">Histórico de Uploads</h3>
+                    {otaHistory.length === 0 ? (
+                      <div className="text-center text-white/30 text-xs">Nenhum histórico encontrado.</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {otaHistory.map((file, idx) => (
+                          <div key={idx} className="bg-white/5 rounded p-3 text-xs flex justify-between items-center">
+                            <div>
+                              <div className="text-white font-bold">{file.name}</div>
+                              <div className="text-white/50 mt-1">{new Date(file.created_at).toLocaleString('pt-BR')}</div>
+                            </div>
+                            <div className="text-primary/70">{(file.metadata?.size / 1024).toFixed(0)} KB</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* OTA Upload Panel */}
