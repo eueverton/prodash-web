@@ -97,7 +97,11 @@ export default function Leaderboard() {
               data.map((row, index) => (
                 <div key={row.id} className={`table-row rank-${index + 1}`}>
                   <div className="rank-num font-orbitron font-bold">{(index + 1).toString().padStart(2, '0')}</div>
-                  <div className="font-bold text-white uppercase">{row.piloto}</div>
+                  <div className="font-bold text-white uppercase">
+                    <Link href={`/piloto/${encodeURIComponent(row.piloto)}`} className="hover:text-primary transition-colors underline decoration-white/20 underline-offset-4">
+                      {row.piloto}
+                    </Link>
+                  </div>
                   <div className="text-white/70 text-sm uppercase">{row.carro}</div>
                   <div className="time-val text-right">
                     {activeTab === "top_speed" 

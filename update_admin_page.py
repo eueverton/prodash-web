@@ -1,4 +1,10 @@
-"use client";
+import re
+
+with open(r'f:\prodash-nextweb\src\app\admin\page.tsx', 'r', encoding='utf-8') as f:
+    content = f.read()
+
+# We will completely replace the content of AdminPage to include tabs.
+new_content = '''"use client";
 
 import { useState, useRef, useEffect } from "react";
 import { UploadCloud, ArrowLeft, Trash2, Cpu } from "lucide-react";
@@ -222,3 +228,8 @@ export default function AdminPage() {
     </div>
   );
 }
+'''
+
+with open(r'f:\prodash-nextweb\src\app\admin\page.tsx', 'w', encoding='utf-8') as f:
+    f.write(new_content)
+print("Updated AdminPage with tabs, OTA status, and ranking moderation!")
