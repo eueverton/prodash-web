@@ -44,7 +44,7 @@ export default function AdminPage() {
       
       const { data: historyData } = await supabase.storage.from("firmwares").list();
       if (historyData) {
-        historyData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        historyData.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         setOtaHistory(historyData);
       }
     } catch (e) {
