@@ -30,7 +30,7 @@ export default function Leaderboard() {
         .from("ranking")
         .select("*")
         .eq("modalidade", modalidade)
-        .order("tempo", { ascending: true })
+        .order("tempo", { ascending: modalidade !== "top_speed" })
         .limit(10);
 
       if (error) throw error;
@@ -67,13 +67,13 @@ export default function Leaderboard() {
 
       <main className="max-w-4xl mx-auto px-4 pb-20">
         <div className="flex justify-center gap-4 mb-8">
-          {["0-100", "100-200", "201m"].map((mod) => (
+          {["0-100", "100-200", "201m", "top_speed"].map((mod) => (
             <button
               key={mod}
               onClick={() => setActiveTab(mod)}
               className={`tab-btn ${activeTab === mod ? "active" : ""}`}
             >
-              {mod === "201m" ? "201 METROS" : `${mod} KM/H`}
+              {mod === "201m" ? "201 METROS" : mod === "top_speed" ? "TOP SPEED" : `${mod} KM/H`}
             </button>
           ))}
         </div>
@@ -83,7 +83,7 @@ export default function Leaderboard() {
             <div>#</div>
             <div>PILOTO</div>
             <div>CARRO</div>
-            <div className="text-right">TEMPO</div>
+            <div className="text-right">{activeTab === "top_speed" ? "VELOCIDADE" : "TEMPO"}</div>
           </div>
           
           <div className="min-h-[400px]">
@@ -92,14 +92,18 @@ export default function Leaderboard() {
                 <div className="spinner"></div>
               </div>
             ) : data.length === 0 ? (
-              <div className="text-center text-white/30 pt-12">Nenhum tempo registrado ainda.</div>
+              <div className="text-center text-white/30 pt-12">Nenhum registro encontrado.</div>
             ) : (
               data.map((row, index) => (
                 <div key={row.id} className={`table-row rank-${index + 1}`}>
                   <div className="rank-num font-orbitron font-bold">{(index + 1).toString().padStart(2, '0')}</div>
                   <div className="font-bold text-white uppercase">{row.piloto}</div>
                   <div className="text-white/70 text-sm uppercase">{row.carro}</div>
-                  <div className="time-val text-right">{row.tempo.toFixed(3)}s</div>
+                  <div className="time-val text-right">
+                    {activeTab === "top_speed" 
+                      ? `${row.tempo.toFixed(0)} km/h` 
+                      : `${row.tempo.toFixed(3)}s`}
+                  </div>
                 </div>
               ))
             )}
