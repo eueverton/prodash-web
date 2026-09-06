@@ -141,6 +141,7 @@ export default function AdminPage() {
                 <label className="block text-xs uppercase tracking-widest text-white/50 mb-2">Senha Master</label>
                 <input 
                   type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   className="w-full bg-black/50 border border-white/10 rounded-lg p-4 text-white focus:outline-none focus:border-primary transition-all"
                   required
                 />
