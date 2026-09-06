@@ -70,3 +70,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Erro interno no servidor Vercel." }, { status: 500 });
   }
 }
+
+export async function GET() {
+  try {
+    const { data, error } = await supabase.storage.from("firmwares").list();
+    if (error) {
+      console.error("Storage list error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ files: data || [] });
+  } catch (err: any) {
+    console.error("API GET Error:", err);
+    return NextResponse.json({ error: "Erro interno no servidor." }, { status: 500 });
+  }
+}

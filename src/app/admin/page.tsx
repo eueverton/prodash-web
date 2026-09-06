@@ -38,10 +38,14 @@ export default function AdminPage() {
       const { data } = await supabase.from("firmware_updates").select("version").eq("id", 1).single();
       if (data) setCurrentOtaVersion(data.version);
       
-      const { data: historyData } = await supabase.storage.from("firmwares").list();
-      if (historyData) {
-        historyData.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-        setOtaHistory(historyData);
+      const res = await fetch("/api/ota");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.files) {
+          const historyData = json.files.filter((f: any) => f.name !== '.emptyFolderPlaceholder');
+          historyData.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+          setOtaHistory(historyData);
+        }
       }
     } catch (e) {
       console.error(e);
