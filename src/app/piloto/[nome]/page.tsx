@@ -1,4 +1,7 @@
 "use client";
+import { use } from "react";
+import { ArrowLeft, CarFront, Trophy } from "lucide-react";
+import Link from "next/link";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
