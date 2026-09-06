@@ -23,6 +23,28 @@ export default function PilotProfilePage({ params }: { params: Promise<{ nome: s
   const [records, setRecords] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedGhost, setSelectedGhost] = useState<RankingEntry | null>(null);
+  const [compareList, setCompareList] = useState<RankingEntry[]>([]);
+  const [selectedCompare, setSelectedCompare] = useState<RankingEntry | null>(null);
+
+  useEffect(() => {
+    if (!selectedGhost) {
+      setCompareList([]);
+      setSelectedCompare(null);
+      return;
+    }
+    const fetchCompare = async () => {
+      const { data } = await supabase
+        .from("ranking")
+        .select("*")
+        .eq("modalidade", selectedGhost.modalidade)
+        .neq("id", selectedGhost.id)
+        .not("csv_data", "is", null)
+        .order("tempo", { ascending: selectedGhost.modalidade !== "top_speed" })
+        .limit(10);
+      setCompareList(data || []);
+    };
+    fetchCompare();
+  }, [selectedGhost]);
 
   useEffect(() => {
     const fetchPilotData = async () => {
@@ -85,15 +107,33 @@ export default function PilotProfilePage({ params }: { params: Promise<{ nome: s
             </div>
             
             <div className="p-6 flex-1 overflow-y-auto">
-              <div className="mb-6 flex justify-between items-end">
+              <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
                   <p className="text-white/50 text-sm uppercase tracking-widest">Piloto Principal</p>
                   <p className="text-2xl font-bold text-white">{selectedGhost.piloto} <span className="text-primary text-lg">({selectedGhost.tempo}s)</span></p>
                 </div>
+                {compareList.length > 0 && (
+                  <div className="bg-black/40 p-3 rounded-lg border border-white/10 w-full md:w-auto">
+                    <p className="text-white/50 text-xs uppercase tracking-widest mb-2">Comparar com (Ghost Secundário)</p>
+                    <select 
+                      className="bg-gray-800 text-white border border-white/20 rounded p-2 text-sm w-full outline-none focus:border-primary"
+                      onChange={(e) => {
+                        const targetId = parseInt(e.target.value);
+                        const match = compareList.find(c => c.id === targetId);
+                        setSelectedCompare(match || null);
+                      }}
+                    >
+                      <option value="">Nenhum (Visualização Solo)</option>
+                      {compareList.map(c => (
+                         <option key={c.id} value={c.id}>{c.piloto} - {c.carro} ({c.tempo}s)</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
               
               <div className="h-[400px] w-full bg-black/30 rounded-xl p-4 border border-white/5">
-                <GhostChart csvData={selectedGhost.csv_data} />
+                <GhostChart csvData={selectedGhost.csv_data} compareCsvData={selectedCompare?.csv_data || undefined} compareName={selectedCompare?.piloto} />
               </div>
             </div>
           </div>
@@ -193,7 +233,7 @@ function RecordCard({ title, record, format, highlight = false, onViewGhost }: {
   );
 }
 
-function GhostChart({ csvData }: { csvData: string }) {
+function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string, compareCsvData?: string, compareName?: string }) {
   const [data, setData] = useState<any[]>([]);
 
   useEffect(() => {
@@ -205,21 +245,40 @@ function GhostChart({ csvData }: { csvData: string }) {
     
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) continue;
-      
       const cols = lines[i].split(",");
       if (cols.length >= 3) {
         parsedData.push({
           time: parseFloat(cols[0]),
           rpm: parseInt(cols[1]),
           speed: parseInt(cols[2]),
-          tps: parseInt(cols[3] || "0"),
-          map: parseInt(cols[4] || "0"),
-          gear: parseInt(cols[5] || "0"),
         });
       }
     }
+
+    if (compareCsvData) {
+      const cLines = compareCsvData.split("\n");
+      for (let i = 1; i < cLines.length; i++) {
+        if (!cLines[i].trim()) continue;
+        const cols = cLines[i].split(",");
+        if (cols.length >= 3) {
+          const t = parseFloat(cols[0]);
+          const match = parsedData.find(p => Math.abs(p.time - t) < 0.05);
+          if (match) {
+            match.compareSpeed = parseInt(cols[2]);
+            match.compareRpm = parseInt(cols[1]);
+          } else {
+            parsedData.push({
+              time: t,
+              compareSpeed: parseInt(cols[2]),
+              compareRpm: parseInt(cols[1]),
+            });
+          }
+        }
+      }
+      parsedData.sort((a, b) => a.time - b.time);
+    }
     setData(parsedData);
-  }, [csvData]);
+  }, [csvData, compareCsvData]);
 
   if (data.length === 0) return <div className="flex h-full items-center justify-center text-white/50">Carregando Telemetria...</div>;
 
@@ -255,6 +314,12 @@ function GhostChart({ csvData }: { csvData: string }) {
         <Legend />
         <Line yAxisId="speed" type="monotone" dataKey="speed" name="Velocidade (km/h)" stroke="#00ffcc" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
         <Line yAxisId="rpm" type="monotone" dataKey="rpm" name="RPM" stroke="#ff0055" strokeWidth={2} dot={false} />
+        {compareCsvData && (
+          <>
+             <Line yAxisId="speed" type="monotone" dataKey="compareSpeed" name={`Vel ${compareName}`} stroke="#00aa88" strokeDasharray="5 5" strokeWidth={2} dot={false} />
+             <Line yAxisId="rpm" type="monotone" dataKey="compareRpm" name={`RPM ${compareName}`} stroke="#aa0033" strokeDasharray="5 5" strokeWidth={2} dot={false} />
+          </>
+        )}
       </LineChart>
     </ResponsiveContainer>
   );
