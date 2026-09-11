@@ -26,10 +26,23 @@ export default function Leaderboard() {
         .select("*")
         .eq("modalidade", modalidade)
         .order("tempo", { ascending: modalidade !== "top_speed" })
-        .limit(10);
+        .limit(100);
 
       if (error) throw error;
-      setData(rankingData || []);
+
+      const uniquePilots = new Map();
+      const filteredData = [];
+      
+      for (const entry of (rankingData || [])) {
+          const pilotLower = entry.piloto.toLowerCase();
+          if (!uniquePilots.has(pilotLower)) {
+              uniquePilots.set(pilotLower, true);
+              filteredData.push(entry);
+              if (filteredData.length >= 10) break;
+          }
+      }
+      
+      setData(filteredData);
     } catch (err) {
       console.error("Erro ao buscar ranking:", err);
     } finally {
