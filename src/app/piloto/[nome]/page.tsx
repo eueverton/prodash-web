@@ -281,7 +281,18 @@ function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string,
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) continue;
       const cols = lines[i].split(",");
-      if (cols.length >= 3) {
+      if (cols.length >= 8) {
+        parsedData.push({
+          time: parseFloat(cols[0]),
+          rpm: parseInt(cols[1]),
+          speed: parseInt(cols[2]),
+          iat: parseInt(cols[3]),
+          advance: parseInt(cols[4]),
+          map: parseInt(cols[5]),
+          volt: parseFloat(cols[6]),
+          gear: parseInt(cols[7])
+        });
+      } else if (cols.length >= 3) {
         parsedData.push({
           time: parseFloat(cols[0]),
           rpm: parseInt(cols[1]),
@@ -341,11 +352,7 @@ function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string,
           tick={{fontSize: 12}} 
           domain={['dataMin', 'dataMax']}
         />
-        <Tooltip 
-          contentStyle={{ backgroundColor: '#111', borderColor: '#333', borderRadius: '8px' }}
-          labelStyle={{ color: '#fff', fontWeight: 'bold' }}
-          labelFormatter={(val) => `Tempo: ${val}s`}
-        />
+        <Tooltip content={<CustomTooltip />} />
         <Legend />
         <Line yAxisId="speed" type="monotone" dataKey="speed" name="Velocidade (km/h)" stroke="#00ffcc" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
         <Line yAxisId="rpm" type="monotone" dataKey="rpm" name="RPM" stroke="#ff0055" strokeWidth={2} dot={false} />
@@ -359,3 +366,31 @@ function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string,
     </ResponsiveContainer>
   );
 }
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-gray-900 border border-white/20 p-3 rounded-lg shadow-xl text-sm">
+        <p className="text-white font-bold mb-2 border-b border-white/10 pb-1">Tempo: {label}s</p>
+        <p style={{ color: '#00ffcc' }}>Velocidade: {data.speed} km/h</p>
+        <p style={{ color: '#ff0055' }}>RPM: {data.rpm}</p>
+        
+        {data.gear !== undefined && <p className="text-white/80 mt-1">Marcha: {data.gear}</p>}
+        {data.iat !== undefined && data.iat !== -99 && <p className="text-white/80">Temp Ar (IAT): {data.iat} °C</p>}
+        {data.advance !== undefined && data.advance !== -99 && <p className="text-white/80">Ponto (Avanço): {data.advance}°</p>}
+        {data.map !== undefined && data.map !== -1 && <p className="text-white/80">Pressão MAP: {data.map} kPa</p>}
+        {data.volt !== undefined && <p className="text-white/80">Bateria: {data.volt} V</p>}
+        
+        {data.compareSpeed !== undefined && (
+          <div className="mt-2 pt-2 border-t border-white/10">
+            <p className="text-white/50 text-xs mb-1">GHOST COMPARATIVO</p>
+            <p style={{ color: '#00aa88' }}>Velocidade: {data.compareSpeed} km/h</p>
+            <p style={{ color: '#aa0033' }}>RPM: {data.compareRpm}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
