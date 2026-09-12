@@ -14,6 +14,7 @@ type RankingEntry = {
   modalidade: string;
   tempo: number;
   csv_data: string | null;
+  created_at: string;
 };
 
 export default function PilotProfilePage({ params }: { params: Promise<{ nome: string }> }) {
@@ -204,6 +205,40 @@ export default function PilotProfilePage({ params }: { params: Promise<{ nome: s
 
           </div>
         )}
+
+        {/* Histórico Completo de Puxadas */}
+        {records.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-xl font-orbitron font-bold text-white mb-6 border-b border-white/10 pb-4">HISTÓRICO COMPLETO (GHOSTS)</h2>
+            <div className="flex flex-col gap-3">
+              {records.map((r) => (
+                <div key={r.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-white/10 transition-colors">
+                  <div>
+                    <span className="text-primary font-bold mr-3">{r.modalidade}</span>
+                    <span className="text-white/80 text-sm">
+                      {new Date(r.created_at).toLocaleString('pt-BR')}
+                    </span>
+                    <p className="text-sm text-white/50 mt-1">{r.carro}</p>
+                  </div>
+                  <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
+                    <span className="text-2xl font-orbitron font-bold text-white">
+                      {r.modalidade === "top_speed" ? `${r.tempo} km/h` : `${r.tempo}s`}
+                    </span>
+                    {r.csv_data && (
+                      <button 
+                        onClick={() => setSelectedGhost(r)}
+                        className="flex items-center gap-2 text-xs font-bold text-black bg-primary hover:bg-primary/80 px-4 py-2 rounded-full transition-all whitespace-nowrap"
+                      >
+                        <Ghost size={14} /> VER TELEMETRIA
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
