@@ -270,6 +270,11 @@ function RecordCard({ title, record, format, highlight = false, onViewGhost }: {
 
 function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string, compareCsvData?: string, compareName?: string }) {
   const [data, setData] = useState<any[]>([]);
+  const [visible, setVisible] = useState<Record<string, boolean>>({
+    speed: true, rpm: true, map: false, advance: false, iat: false, volt: false, gear: false
+  });
+
+  const toggleLine = (key: string) => setVisible(prev => ({ ...prev, [key]: !prev[key] }));
 
   useEffect(() => {
     if (!csvData) return;
@@ -323,47 +328,56 @@ function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string,
       }
       parsedData.sort((a, b) => a.time - b.time);
     }
-    setData(parsedData);
+    
+    // Filter out rows where all extended values are -99 (unconnected sensors) so they don't break the chart
+    setData(parsedData.map(d => ({
+      ...d,
+      iat: d.iat === -99 ? null : d.iat,
+      advance: d.advance === -99 ? null : d.advance,
+      map: d.map === -1 ? null : d.map
+    })));
   }, [csvData, compareCsvData]);
 
   if (data.length === 0) return <div className="flex h-full items-center justify-center text-white/50">Carregando Telemetria...</div>;
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff15" vertical={false} />
-        <XAxis 
-          dataKey="time" 
-          stroke="#ffffff50" 
-          tickFormatter={(val) => `${val}s`} 
-          tick={{fontSize: 12}}
-        />
-        <YAxis 
-          yAxisId="speed" 
-          orientation="left" 
-          stroke="#00ffcc" 
-          tick={{fontSize: 12}}
-          domain={['dataMin', 'dataMax']}
-        />
-        <YAxis 
-          yAxisId="rpm" 
-          orientation="right" 
-          stroke="#ff0055" 
-          tick={{fontSize: 12}} 
-          domain={['dataMin', 'dataMax']}
-        />
-        <Tooltip content={<CustomTooltip />} />
-        <Legend />
-        <Line yAxisId="speed" type="monotone" dataKey="speed" name="Velocidade (km/h)" stroke="#00ffcc" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-        <Line yAxisId="rpm" type="monotone" dataKey="rpm" name="RPM" stroke="#ff0055" strokeWidth={2} dot={false} />
-        {compareCsvData && (
-          <>
-             <Line yAxisId="speed" type="monotone" dataKey="compareSpeed" name={`Vel ${compareName}`} stroke="#00aa88" strokeDasharray="5 5" strokeWidth={2} dot={false} />
-             <Line yAxisId="rpm" type="monotone" dataKey="compareRpm" name={`RPM ${compareName}`} stroke="#aa0033" strokeDasharray="5 5" strokeWidth={2} dot={false} />
-          </>
-        )}
-      </LineChart>
-    </ResponsiveContainer>
+    <div className="w-full h-full flex flex-col">
+      <div className="flex flex-wrap justify-center gap-2 mb-4">
+        {Object.keys(visible).map(key => (
+          <button 
+            key={key} 
+            onClick={() => toggleLine(key)}
+            className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${visible[key] ? 'bg-primary text-black border-primary' : 'bg-transparent text-white/50 border-white/20 hover:border-white/50'}`}
+          >
+            {key.toUpperCase()}
+          </button>
+        ))}
+      </div>
+      <div className="flex-1 min-h-[300px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff15" vertical={false} />
+            <XAxis dataKey="time" stroke="#ffffff50" tickFormatter={(val) => `${val}s`} tick={{fontSize: 12}} />
+            
+            <YAxis yAxisId="speed" orientation="left" stroke="#00ffcc" tick={{fontSize: 12}} domain={['dataMin', 'dataMax']} />
+            <YAxis yAxisId="rpm" orientation="right" stroke="#ff0055" tick={{fontSize: 12}} domain={['dataMin', 'dataMax']} />
+            
+            <Tooltip content={<CustomTooltip />} />
+            
+            {visible.speed && <Line yAxisId="speed" type="monotone" dataKey="speed" name="Velocidade" stroke="#00ffcc" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />}
+            {visible.rpm && <Line yAxisId="rpm" type="monotone" dataKey="rpm" name="RPM" stroke="#ff0055" strokeWidth={2} dot={false} />}
+            {visible.map && <Line yAxisId="speed" type="monotone" dataKey="map" name="MAP" stroke="#ffaa00" strokeWidth={2} dot={false} />}
+            {visible.advance && <Line yAxisId="speed" type="monotone" dataKey="advance" name="Ponto" stroke="#aa00ff" strokeWidth={2} dot={false} />}
+            {visible.iat && <Line yAxisId="speed" type="monotone" dataKey="iat" name="IAT" stroke="#ff00aa" strokeWidth={2} dot={false} />}
+            {visible.volt && <Line yAxisId="speed" type="monotone" dataKey="volt" name="Bateria" stroke="#ffff00" strokeWidth={2} dot={false} />}
+            {visible.gear && <Line yAxisId="speed" type="stepAfter" dataKey="gear" name="Marcha" stroke="#ffffff" strokeWidth={2} dot={false} />}
+            
+            {compareCsvData && visible.speed && <Line yAxisId="speed" type="monotone" dataKey="compareSpeed" name={`Vel ${compareName}`} stroke="#00aa88" strokeDasharray="5 5" strokeWidth={2} dot={false} />}
+            {compareCsvData && visible.rpm && <Line yAxisId="rpm" type="monotone" dataKey="compareRpm" name={`RPM ${compareName}`} stroke="#aa0033" strokeDasharray="5 5" strokeWidth={2} dot={false} />}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
   );
 }
 
