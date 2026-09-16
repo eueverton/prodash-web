@@ -372,8 +372,8 @@ function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string,
             {visible.volt && <Line yAxisId="speed" type="monotone" dataKey="volt" name="Bateria" stroke="#ffff00" strokeWidth={2} dot={false} />}
             {visible.gear && <Line yAxisId="speed" type="stepAfter" dataKey="gear" name="Marcha" stroke="#ffffff" strokeWidth={2} dot={false} />}
             
-            {compareCsvData && visible.speed && <Line yAxisId="speed" type="monotone" dataKey="compareSpeed" name={`Vel ${compareName}`} stroke="#00aa88" strokeDasharray="5 5" strokeWidth={2} dot={false} />}
-            {compareCsvData && visible.rpm && <Line yAxisId="rpm" type="monotone" dataKey="compareRpm" name={`RPM ${compareName}`} stroke="#aa0033" strokeDasharray="5 5" strokeWidth={2} dot={false} />}
+            {compareCsvData && visible.speed && <Line yAxisId="speed" type="monotone" dataKey="compareSpeed" name={`Vel ${compareName}`} stroke="#3b82f6" strokeWidth={2} dot={false} />}
+            {compareCsvData && visible.rpm && <Line yAxisId="rpm" type="monotone" dataKey="compareRpm" name={`RPM ${compareName}`} stroke="#f59e0b" strokeWidth={2} dot={false} />}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -399,8 +399,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         {data.compareSpeed !== undefined && (
           <div className="mt-2 pt-2 border-t border-white/10">
             <p className="text-white/50 text-xs mb-1">GHOST COMPARATIVO</p>
-            <p style={{ color: '#00aa88' }}>Velocidade: {data.compareSpeed} km/h</p>
-            <p style={{ color: '#aa0033' }}>RPM: {data.compareRpm}</p>
+            <p style={{ color: '#3b82f6' }}>Velocidade: {data.compareSpeed} km/h</p>
+            <p style={{ color: '#f59e0b' }}>RPM: {data.compareRpm}</p>
           </div>
         )}
       </div>
