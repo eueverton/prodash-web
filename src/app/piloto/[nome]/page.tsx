@@ -6,16 +6,7 @@ import Link from "next/link";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-
-type RankingEntry = {
-  id: number;
-  piloto: string;
-  carro: string;
-  modalidade: string;
-  tempo: number;
-  csv_data: string | null;
-  created_at: string;
-};
+import type { RankingEntry } from "@/lib/types";
 
 export default function PilotProfilePage({ params }: { params: Promise<{ nome: string }> }) {
   const unwrappedParams = use(params);
@@ -48,25 +39,30 @@ export default function PilotProfilePage({ params }: { params: Promise<{ nome: s
   }, [selectedGhost]);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchPilotData = async () => {
       setLoading(true);
       try {
         const { data, error } = await supabase
           .from("ranking")
-          .select("*")
-          .ilike("piloto", pilotoNome) // case-insensitive match
-          .order("tempo", { ascending: true }); // We'll manually sort top speed later
+          .select("id,piloto,carro,modalidade,tempo,csv_data,created_at")
+          .ilike("piloto", pilotoNome)
+          .order("tempo", { ascending: true })
+          .abortSignal(controller.signal);
 
         if (error) throw error;
         setRecords(data || []);
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error("Erro ao buscar dados do piloto:", err);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     fetchPilotData();
+    return () => controller.abort();
   }, [pilotoNome]);
 
   // Função para pegar o melhor recorde do piloto em uma modalidade
@@ -111,7 +107,7 @@ export default function PilotProfilePage({ params }: { params: Promise<{ nome: s
               <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
                   <p className="text-white/50 text-sm uppercase tracking-widest">Piloto Principal</p>
-                  <p className="text-2xl font-bold text-white">{selectedGhost.piloto} <span className="text-primary text-lg">({selectedGhost.tempo}s)</span></p>
+                  <p className="text-2xl font-bold text-white">{selectedGhost.piloto} <span className="text-primary text-lg">({selectedGhost.modalidade === "top_speed" ? `${selectedGhost.tempo} km/h` : `${selectedGhost.tempo}s`})</span></p>
                 </div>
                 {compareList.length > 0 && (
                   <div className="bg-black/40 p-3 rounded-lg border border-white/10 w-full md:w-auto">
@@ -126,7 +122,7 @@ export default function PilotProfilePage({ params }: { params: Promise<{ nome: s
                     >
                       <option value="">Nenhum (Visualização Solo)</option>
                       {compareList.map(c => (
-                         <option key={c.id} value={c.id}>{c.piloto} - {c.carro} ({c.tempo}s)</option>
+                         <option key={c.id} value={c.id}>{c.piloto} - {c.carro} ({c.modalidade === "top_speed" ? `${c.tempo} km/h` : `${c.tempo}s`})</option>
                       ))}
                     </select>
                   </div>
@@ -194,6 +190,7 @@ export default function PilotProfilePage({ params }: { params: Promise<{ nome: s
               title="Arrancada 201m" 
               record={best201m} 
               format={(v) => `${v.toFixed(3)}s`} 
+              onViewGhost={setSelectedGhost}
             />
             
             <RecordCard 
@@ -216,7 +213,7 @@ export default function PilotProfilePage({ params }: { params: Promise<{ nome: s
                   <div>
                     <span className="text-primary font-bold mr-3">{r.modalidade}</span>
                     <span className="text-white/80 text-sm">
-                      {new Date(r.created_at).toLocaleString('pt-BR')}
+                      {new Date(r.created_at || 0).toLocaleString('pt-BR')}
                     </span>
                     <p className="text-sm text-white/50 mt-1">{r.carro}</p>
                   </div>

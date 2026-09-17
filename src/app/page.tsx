@@ -4,54 +4,52 @@ import Link from "next/link";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-
-type RankingEntry = {
-  id: number;
-  piloto: string;
-  carro: string;
-  modalidade: string;
-  tempo: number;
-};
+import type { RankingEntry } from "@/lib/types";
 
 export default function Leaderboard() {
   const [activeTab, setActiveTab] = useState("0-100");
   const [data, setData] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchRanking = async (modalidade: string) => {
-    setLoading(true);
-    try {
-      const { data: rankingData, error } = await supabase
-        .from("ranking")
-        .select("*")
-        .eq("modalidade", modalidade)
-        .order("tempo", { ascending: modalidade !== "top_speed" })
-        .limit(100);
+  useEffect(() => {
+    const controller = new AbortController();
 
-      if (error) throw error;
+    const fetchRanking = async (modalidade: string) => {
+      setLoading(true);
+      try {
+        const { data: rankingData, error } = await supabase
+          .from("ranking")
+          .select("id,piloto,carro,modalidade,tempo")
+          .eq("modalidade", modalidade)
+          .order("tempo", { ascending: modalidade !== "top_speed" })
+          .limit(100)
+          .abortSignal(controller.signal);
 
-      const uniquePilots = new Map();
-      const filteredData = [];
-      
-      for (const entry of (rankingData || [])) {
+        if (error) throw error;
+
+        const uniquePilots = new Map<string, boolean>();
+        const filteredData: RankingEntry[] = [];
+
+        for (const entry of rankingData || []) {
           const pilotLower = entry.piloto.toLowerCase();
           if (!uniquePilots.has(pilotLower)) {
-              uniquePilots.set(pilotLower, true);
-              filteredData.push(entry);
-              if (filteredData.length >= 10) break;
+            uniquePilots.set(pilotLower, true);
+            filteredData.push(entry);
+            if (filteredData.length >= 10) break;
           }
-      }
-      
-      setData(filteredData);
-    } catch (err) {
-      console.error("Erro ao buscar ranking:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+        }
 
-  useEffect(() => {
+        setData(filteredData);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        console.error("Erro ao buscar ranking:", err);
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+
     fetchRanking(activeTab);
+    return () => controller.abort();
   }, [activeTab]);
 
   return (

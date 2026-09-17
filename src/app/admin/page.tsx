@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { UploadCloud, ArrowLeft, Trash2, Cpu } from "lucide-react";
+import { UploadCloud, ArrowLeft, Trash2, Cpu, LogOut } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import type { RankingEntry, StorageFileItem } from "@/lib/types";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [activeTab, setActiveTab] = useState("ota");
-  
-  // OTA State
+
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [version, setVersion] = useState("");
@@ -18,11 +18,18 @@ export default function AdminPage() {
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentOtaVersion, setCurrentOtaVersion] = useState<number | null>(null);
-  const [otaHistory, setOtaHistory] = useState<any[]>([]);
+  const [otaHistory, setOtaHistory] = useState<StorageFileItem[]>([]);
 
-  // Ranking State
-  const [rankingData, setRankingData] = useState<any[]>([]);
+  const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
   const [loadingRanking, setLoadingRanking] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/login")
+      .then((res) => {
+        if (res.ok) setIsAuthenticated(true);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -33,17 +40,28 @@ export default function AdminPage() {
     }
   }, [isAuthenticated, activeTab]);
 
+  const handleAuthFailure = () => {
+    setIsAuthenticated(false);
+    setErrorMsg("Sessão expirada. Entre novamente.");
+  };
+
   const fetchCurrentOta = async () => {
     try {
       const { data } = await supabase.from("firmware_updates").select("version").eq("id", 1).single();
       if (data) setCurrentOtaVersion(data.version);
-      
+
       const res = await fetch("/api/ota");
+      if (res.status === 401) {
+        handleAuthFailure();
+        return;
+      }
       if (res.ok) {
         const json = await res.json();
         if (json.files) {
-          const historyData = json.files.filter((f: any) => f.name !== '.emptyFolderPlaceholder');
-          historyData.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+          const historyData = (json.files as StorageFileItem[]).filter((f) => f.name !== ".emptyFolderPlaceholder");
+          historyData.sort(
+            (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime(),
+          );
           setOtaHistory(historyData);
         }
       }
@@ -55,7 +73,11 @@ export default function AdminPage() {
   const fetchRanking = async () => {
     setLoadingRanking(true);
     try {
-      const { data } = await supabase.from("ranking").select("*").order("created_at", { ascending: false }).limit(50);
+      const { data } = await supabase
+        .from("ranking")
+        .select("id,piloto,carro,modalidade,tempo,created_at")
+        .order("created_at", { ascending: false })
+        .limit(50);
       setRankingData(data || []);
     } catch (e) {
       console.error(e);
@@ -64,12 +86,30 @@ export default function AdminPage() {
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length > 0) {
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Falha no login");
       setIsAuthenticated(true);
-      setErrorMsg("");
+      setPassword("");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Falha no login");
     }
+  };
+
+  const handleLogout = async () => {
+    await fetch("/api/admin/login", { method: "DELETE" });
+    setIsAuthenticated(false);
+    setPassword("");
+    setOtaHistory([]);
+    setRankingData([]);
   };
 
   const handleUpload = async (e: React.FormEvent) => {
@@ -84,20 +124,24 @@ export default function AdminPage() {
     formData.append("file", file);
     formData.append("version", version);
     formData.append("notes", notes);
-    formData.append("password", password);
 
     try {
       const res = await fetch("/api/ota", { method: "POST", body: formData });
       const data = await res.json();
+      if (res.status === 401) {
+        handleAuthFailure();
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "Erro desconhecido");
 
       alert("Atualização lançada com SUCESSO! 🚀");
-      setVersion(""); setNotes(""); setFile(null);
+      setVersion("");
+      setNotes("");
+      setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      fetchCurrentOta(); // Reload version
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro desconhecido");
-      if (err.message && err.message.includes("Senha")) setIsAuthenticated(false);
+      fetchCurrentOta();
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
       setLoading(false);
     }
@@ -105,21 +149,24 @@ export default function AdminPage() {
 
   const handleDeleteRecord = async (id: number) => {
     if (!confirm("Certeza absoluta que deseja excluir este recorde? Esta ação não pode ser desfeita.")) return;
-    
+
     try {
       const res = await fetch("/api/ranking", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, password })
+        body: JSON.stringify({ id }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        handleAuthFailure();
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "Erro ao deletar");
-      
-      // Update UI
-      setRankingData(rankingData.filter(r => r.id !== id));
+
+      setRankingData(rankingData.filter((r) => r.id !== id));
       alert("Registro excluído!");
-    } catch (err: any) {
-      alert("Falha: " + err.message);
+    } catch (err: unknown) {
+      alert("Falha: " + (err instanceof Error ? err.message : "erro desconhecido"));
     }
   };
 
@@ -139,13 +186,16 @@ export default function AdminPage() {
             <form onSubmit={handleLogin} className="space-y-6">
               <div>
                 <label className="block text-xs uppercase tracking-widest text-white/50 mb-2">Senha Master</label>
-                <input 
-                  type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   className="w-full bg-black/50 border border-white/10 rounded-lg p-4 text-white focus:outline-none focus:border-primary transition-all"
                   required
                 />
               </div>
+              {errorMsg && <div className="text-red-400 text-sm text-center">{errorMsg}</div>}
               <button type="submit" className="w-full bg-primary hover:bg-primary/80 text-black font-orbitron font-bold py-4 rounded-lg transition-all shadow-[0_0_20px_rgba(0,255,204,0.3)]">
                 ACESSAR SISTEMA
               </button>
@@ -153,14 +203,16 @@ export default function AdminPage() {
           </div>
         ) : (
           <div>
-            <div className="flex justify-center gap-4 mb-8">
+            <div className="flex justify-center items-center gap-4 mb-8">
               <button onClick={() => setActiveTab("ota")} className={`tab-btn ${activeTab === "ota" ? "active" : ""}`}>DEPLOY OTA</button>
               <button onClick={() => setActiveTab("ranking")} className={`tab-btn ${activeTab === "ranking" ? "active" : ""}`}>MODERAR RANKING</button>
+              <button onClick={handleLogout} className="tab-btn flex items-center gap-2" title="Sair">
+                <LogOut size={16} /> SAIR
+              </button>
             </div>
 
             {activeTab === "ota" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* OTA Status & History Panel */}
                 <div className="glass-panel flex flex-col overflow-hidden">
                   <div className="p-8 flex flex-col items-center justify-center text-center border-b border-white/5">
                     <Cpu size={50} className="text-primary/50 mb-4" />
@@ -169,20 +221,20 @@ export default function AdminPage() {
                       v{currentOtaVersion || "--"}
                     </div>
                   </div>
-                  
+
                   <div className="p-4 bg-black/30 flex-1 overflow-y-auto max-h-[300px]">
                     <h3 className="text-xs uppercase tracking-widest text-white/50 mb-4 text-center">Histórico de Uploads</h3>
                     {otaHistory.length === 0 ? (
                       <div className="text-center text-white/30 text-xs">Nenhum histórico encontrado.</div>
                     ) : (
                       <div className="space-y-2">
-                        {otaHistory.map((file, idx) => (
+                        {otaHistory.map((item, idx) => (
                           <div key={idx} className="bg-white/5 rounded p-3 text-xs flex justify-between items-center">
                             <div>
-                              <div className="text-white font-bold">{file.name}</div>
-                              <div className="text-white/50 mt-1">{new Date(file.created_at).toLocaleString('pt-BR')}</div>
+                              <div className="text-white font-bold">{item.name}</div>
+                              <div className="text-white/50 mt-1">{new Date(item.created_at || 0).toLocaleString("pt-BR")}</div>
                             </div>
-                            <div className="text-primary/70">{(file.metadata?.size / 1024).toFixed(0)} KB</div>
+                            <div className="text-primary/70">{((item.metadata?.size || 0) / 1024).toFixed(0)} KB</div>
                           </div>
                         ))}
                       </div>
@@ -190,7 +242,6 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* OTA Upload Panel */}
                 <div className="glass-panel p-8">
                   <form onSubmit={handleUpload} className="space-y-4">
                     <div>
@@ -201,10 +252,10 @@ export default function AdminPage() {
                       <label className="block text-xs uppercase text-white/50 mb-1">Notas (Opcional)</label>
                       <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded p-2 text-white" />
                     </div>
-                    <div className={`border-2 border-dashed rounded p-4 text-center cursor-pointer ${file ? 'border-primary' : 'border-white/10'}`} onClick={() => fileInputRef.current?.click()}>
+                    <div className={`border-2 border-dashed rounded p-4 text-center cursor-pointer ${file ? "border-primary" : "border-white/10"}`} onClick={() => fileInputRef.current?.click()}>
                       <UploadCloud size={30} className="mx-auto mb-2 text-white/50" />
                       <span className="text-xs text-white/70">{file ? file.name : "Selecionar .bin"}</span>
-                      <input type="file" ref={fileInputRef} accept=".bin" onChange={(e) => { if(e.target.files?.length) setFile(e.target.files[0]); }} className="hidden" required />
+                      <input type="file" ref={fileInputRef} accept=".bin" onChange={(e) => { if (e.target.files?.length) setFile(e.target.files[0]); }} className="hidden" required />
                     </div>
                     {errorMsg && <div className="text-red-400 text-sm text-center">{errorMsg}</div>}
                     <button type="submit" disabled={loading} className="w-full bg-primary text-black font-bold py-3 rounded">
@@ -243,7 +294,6 @@ export default function AdminPage() {
                 </div>
               </div>
             )}
-
           </div>
         )}
       </div>

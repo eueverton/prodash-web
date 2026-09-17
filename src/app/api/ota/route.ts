@@ -1,54 +1,41 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-// Usamos a chave SECRETA (Service Role) aqui no backend. Nunca vai para o navegador.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://vnwpornmtqnevjlibwsw.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; 
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey as string);
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { adminMisconfigured, isAdminConfigured, isAdminRequest, unauthorized } from "@/lib/adminAuth";
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
-    const version = formData.get("version") as string;
-    const notes = formData.get("notes") as string;
-    const password = formData.get("password") as string;
+    if (!isAdminConfigured()) return adminMisconfigured();
 
-    // 1. CHECAGEM DE SEGURANÇA (Senha Master salva no painel da Vercel)
-    const masterPassword = process.env.ADMIN_PASSWORD || "prodash123";
-    
-    if (password !== masterPassword) {
-      return NextResponse.json({ error: "Senha de Administrador Incorreta!" }, { status: 401 });
+    const formData = await request.formData();
+    const file = formData.get("file") as File | null;
+    const version = formData.get("version") as string | null;
+    const notes = (formData.get("notes") as string | null) || "";
+    const password = formData.get("password") as string | null;
+
+    if (!isAdminRequest(request, password)) {
+      return unauthorized();
     }
 
     if (!file || !version) {
       return NextResponse.json({ error: "Arquivo ou versão faltando." }, { status: 400 });
     }
 
-    // 2. UPLOAD PRO STORAGE
+    const supabase = getSupabaseAdmin();
     const fileName = `prodash_v${version}_${Date.now()}.bin`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from("firmwares")
-      .upload(fileName, file, {
-        cacheControl: "3600",
-        upsert: true,
-      });
+
+    const { error: uploadError } = await supabase.storage.from("firmwares").upload(fileName, file, {
+      cacheControl: "3600",
+      upsert: true,
+    });
 
     if (uploadError) {
       console.error("Storage Error:", uploadError);
       return NextResponse.json({ error: "Erro ao subir o arquivo: " + uploadError.message }, { status: 500 });
     }
 
-    // 3. PEGAR A URL PÚBLICA
-    const { data: publicUrlData } = supabase.storage
-      .from("firmwares")
-      .getPublicUrl(fileName);
-      
+    const { data: publicUrlData } = supabase.storage.from("firmwares").getPublicUrl(fileName);
     const publicUrl = publicUrlData.publicUrl;
 
-    // 4. ATUALIZAR O BANCO DE DADOS PARA A DASH VER
     const { error: dbError } = await supabase
       .from("firmware_updates")
       .update({
@@ -64,22 +51,25 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, message: `V${version} implantada com sucesso!` });
-
   } catch (err: unknown) {
     console.error("API Error:", err);
     return NextResponse.json({ error: "Erro interno no servidor Vercel." }, { status: 500 });
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    if (!isAdminConfigured()) return adminMisconfigured();
+    if (!isAdminRequest(request)) return unauthorized();
+
+    const supabase = getSupabaseAdmin();
     const { data, error } = await supabase.storage.from("firmwares").list();
     if (error) {
       console.error("Storage list error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     return NextResponse.json({ files: data || [] });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("API GET Error:", err);
     return NextResponse.json({ error: "Erro interno no servidor." }, { status: 500 });
   }
