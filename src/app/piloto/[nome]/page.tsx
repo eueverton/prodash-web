@@ -307,26 +307,58 @@ function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string,
     }
 
     if (compareCsvData) {
+      // Parse os dados do ghost secundário em um array separado
+      const comparePoints: { time: number; speed: number; rpm: number }[] = [];
       const cLines = compareCsvData.split("\n");
       for (let i = 1; i < cLines.length; i++) {
         if (!cLines[i].trim()) continue;
         const cols = cLines[i].split(",");
         if (cols.length >= 3) {
-          const t = parseFloat(cols[0]);
-          const match = parsedData.find(p => Math.abs(p.time - t) < 0.05);
-          if (match) {
-            match.compareSpeed = parseInt(cols[2]);
-            match.compareRpm = parseInt(cols[1]);
-          } else {
-            parsedData.push({
-              time: t,
-              compareSpeed: parseInt(cols[2]),
-              compareRpm: parseInt(cols[1]),
-            });
-          }
+          comparePoints.push({
+            time: parseFloat(cols[0]),
+            speed: parseInt(cols[2]),
+            rpm: parseInt(cols[1]),
+          });
         }
       }
-      parsedData.sort((a, b) => a.time - b.time);
+      comparePoints.sort((a, b) => a.time - b.time);
+
+      // Interpolar os dados do ghost secundário nos timestamps do piloto principal
+      // Isso evita criar linhas órfãs que causam buracos no gráfico
+      for (const p of parsedData) {
+        if (comparePoints.length === 0) continue;
+        
+        // Encontrar os dois pontos mais próximos para interpolar
+        let lo = 0, hi = comparePoints.length - 1;
+        while (lo < hi - 1) {
+          const mid = Math.floor((lo + hi) / 2);
+          if (comparePoints[mid].time <= p.time) lo = mid;
+          else hi = mid;
+        }
+
+        const a = comparePoints[lo];
+        const b = comparePoints[hi];
+
+        if (Math.abs(a.time - p.time) < 0.05) {
+          // Match exato
+          p.compareSpeed = a.speed;
+          p.compareRpm = a.rpm;
+        } else if (Math.abs(b.time - p.time) < 0.05) {
+          p.compareSpeed = b.speed;
+          p.compareRpm = b.rpm;
+        } else if (p.time >= a.time && p.time <= b.time && b.time > a.time) {
+          // Interpolar linearmente entre os dois pontos
+          const ratio = (p.time - a.time) / (b.time - a.time);
+          p.compareSpeed = Math.round(a.speed + (b.speed - a.speed) * ratio);
+          p.compareRpm = Math.round(a.rpm + (b.rpm - a.rpm) * ratio);
+        } else if (p.time <= comparePoints[0].time && Math.abs(p.time - comparePoints[0].time) < 0.3) {
+          p.compareSpeed = comparePoints[0].speed;
+          p.compareRpm = comparePoints[0].rpm;
+        } else if (p.time >= comparePoints[comparePoints.length - 1].time && Math.abs(p.time - comparePoints[comparePoints.length - 1].time) < 0.3) {
+          p.compareSpeed = comparePoints[comparePoints.length - 1].speed;
+          p.compareRpm = comparePoints[comparePoints.length - 1].rpm;
+        }
+      }
     }
     
     // Filter out rows where all extended values are -99 (unconnected sensors) so they don't break the chart
@@ -364,16 +396,16 @@ function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string,
             
             <Tooltip content={<CustomTooltip />} />
             
-            {visible.speed && <Line yAxisId="speed" type="monotone" dataKey="speed" name="Velocidade" stroke="#00ffcc" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />}
-            {visible.rpm && <Line yAxisId="rpm" type="monotone" dataKey="rpm" name="RPM" stroke="#ff0055" strokeWidth={2} dot={false} />}
-            {visible.map && <Line yAxisId="speed" type="monotone" dataKey="map" name="MAP" stroke="#ffaa00" strokeWidth={2} dot={false} />}
-            {visible.advance && <Line yAxisId="speed" type="monotone" dataKey="advance" name="Ponto" stroke="#aa00ff" strokeWidth={2} dot={false} />}
-            {visible.iat && <Line yAxisId="speed" type="monotone" dataKey="iat" name="IAT" stroke="#ff00aa" strokeWidth={2} dot={false} />}
-            {visible.volt && <Line yAxisId="speed" type="monotone" dataKey="volt" name="Bateria" stroke="#ffff00" strokeWidth={2} dot={false} />}
-            {visible.gear && <Line yAxisId="speed" type="stepAfter" dataKey="gear" name="Marcha" stroke="#ffffff" strokeWidth={2} dot={false} />}
+            {visible.speed && <Line yAxisId="speed" type="monotone" dataKey="speed" name="Velocidade" stroke="#00ffcc" strokeWidth={3} dot={false} activeDot={{ r: 6 }} connectNulls={true} />}
+            {visible.rpm && <Line yAxisId="rpm" type="monotone" dataKey="rpm" name="RPM" stroke="#ff0055" strokeWidth={2} dot={false} connectNulls={true} />}
+            {visible.map && <Line yAxisId="speed" type="monotone" dataKey="map" name="MAP" stroke="#ffaa00" strokeWidth={2} dot={false} connectNulls={true} />}
+            {visible.advance && <Line yAxisId="speed" type="monotone" dataKey="advance" name="Ponto" stroke="#aa00ff" strokeWidth={2} dot={false} connectNulls={true} />}
+            {visible.iat && <Line yAxisId="speed" type="monotone" dataKey="iat" name="IAT" stroke="#ff00aa" strokeWidth={2} dot={false} connectNulls={true} />}
+            {visible.volt && <Line yAxisId="speed" type="monotone" dataKey="volt" name="Bateria" stroke="#ffff00" strokeWidth={2} dot={false} connectNulls={true} />}
+            {visible.gear && <Line yAxisId="speed" type="stepAfter" dataKey="gear" name="Marcha" stroke="#ffffff" strokeWidth={2} dot={false} connectNulls={true} />}
             
-            {compareCsvData && visible.speed && <Line yAxisId="speed" type="monotone" dataKey="compareSpeed" name={`Vel ${compareName}`} stroke="#3b82f6" strokeWidth={2} dot={false} />}
-            {compareCsvData && visible.rpm && <Line yAxisId="rpm" type="monotone" dataKey="compareRpm" name={`RPM ${compareName}`} stroke="#f59e0b" strokeWidth={2} dot={false} />}
+            {compareCsvData && visible.speed && <Line yAxisId="speed" type="monotone" dataKey="compareSpeed" name={`Vel ${compareName}`} stroke="#3b82f6" strokeWidth={2} dot={false} connectNulls={true} />}
+            {compareCsvData && visible.rpm && <Line yAxisId="rpm" type="monotone" dataKey="compareRpm" name={`RPM ${compareName}`} stroke="#f59e0b" strokeWidth={2} dot={false} connectNulls={true} />}
           </LineChart>
         </ResponsiveContainer>
       </div>
