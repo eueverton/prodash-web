@@ -281,7 +281,7 @@ function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string,
     
     // Parse the simple CSV format: time,rpm,speed,tps,map,gear,iat
     const lines = csvData.split("\n");
-    const parsedData = [];
+    const parsedData: any[] = [];
     
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) continue;
