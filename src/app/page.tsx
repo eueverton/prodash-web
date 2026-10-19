@@ -31,10 +31,15 @@ export default function Leaderboard() {
         const filteredData: RankingEntry[] = [];
 
         for (const entry of rankingData || []) {
-          const pilotLower = entry.piloto.toLowerCase();
+          const cleanPilot = entry.piloto?.trim() || "";
+          const pilotLower = cleanPilot.toLowerCase();
           if (!uniquePilots.has(pilotLower)) {
             uniquePilots.set(pilotLower, true);
-            filteredData.push(entry);
+            filteredData.push({
+              ...entry,
+              piloto: cleanPilot,
+              carro: entry.carro?.trim() || ""
+            });
             if (filteredData.length >= 10) break;
           }
         }

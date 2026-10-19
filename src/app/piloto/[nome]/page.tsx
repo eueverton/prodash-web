@@ -44,15 +44,21 @@ export default function PilotProfilePage({ params }: { params: Promise<{ nome: s
     const fetchPilotData = async () => {
       setLoading(true);
       try {
+        const trimmedNome = pilotoNome.trim();
         const { data, error } = await supabase
           .from("ranking")
           .select("id,piloto,carro,modalidade,tempo,csv_data,created_at")
-          .ilike("piloto", pilotoNome)
+          .or(`piloto.ilike.${trimmedNome},piloto.ilike.${trimmedNome} `)
           .order("tempo", { ascending: true })
           .abortSignal(controller.signal);
 
         if (error) throw error;
-        setRecords(data || []);
+        const cleanedRecords = (data || []).map(r => ({
+          ...r,
+          piloto: r.piloto?.trim() || "",
+          carro: r.carro?.trim() || ""
+        }));
+        setRecords(cleanedRecords);
       } catch (err) {
         if (controller.signal.aborted) return;
         console.error("Erro ao buscar dados do piloto:", err);
@@ -277,7 +283,8 @@ function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string,
     if (!csvData) return;
     
     // Parse the simple CSV format: time,rpm,speed,tps,map,gear,iat
-    const lines = csvData.split("\n");
+    const cleanCsv = csvData.replace(/\\n/g, "\n").replace(/\r/g, "");
+    const lines = cleanCsv.split("\n");
     const parsedData: any[] = [];
     
     for (let i = 1; i < lines.length; i++) {
@@ -306,7 +313,8 @@ function GhostChart({ csvData, compareCsvData, compareName }: { csvData: string,
     if (compareCsvData) {
       // Parse os dados do ghost secundário em um array separado
       const comparePoints: { time: number; speed: number; rpm: number }[] = [];
-      const cLines = compareCsvData.split("\n");
+      const cleanCompare = compareCsvData.replace(/\\n/g, "\n").replace(/\r/g, "");
+      const cLines = cleanCompare.split("\n");
       for (let i = 1; i < cLines.length; i++) {
         if (!cLines[i].trim()) continue;
         const cols = cLines[i].split(",");
