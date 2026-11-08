@@ -141,20 +141,44 @@ export default function AdminPage() {
       }
     }
     setLoading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("version", version);
-    formData.append("notes", notes);
-    formData.append("target", targetDevice);
 
     try {
-      const res = await fetch("/api/ota", { method: "POST", body: formData });
-      const data = await res.json();
-      if (res.status === 401) {
+      // ETAPA 1: Solicita URL assinada de upload ao backend (apenas JSON de 100 bytes)
+      const prepRes = await fetch("/api/ota", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "prepare", target: targetDevice, version }),
+      });
+      if (prepRes.status === 401) {
         handleAuthFailure();
         return;
       }
-      if (!res.ok) throw new Error(data.error || "Erro desconhecido");
+      const prepData = await prepRes.json();
+      if (!prepRes.ok) throw new Error(prepData.error || "Falha ao preparar upload.");
+
+      // ETAPA 2: Upload direto do arquivo para o Supabase Storage (sem passar pelo limite de 4.5MB da Vercel!)
+      const { error: uploadError } = await supabase.storage
+        .from("firmwares")
+        .uploadToSignedUrl(prepData.path, prepData.token, file);
+
+      if (uploadError) {
+        throw new Error("Erro no upload para o Supabase: " + uploadError.message);
+      }
+
+      // ETAPA 3: Notifica o backend para registrar a nova versão na tabela firmware_updates
+      const compRes = await fetch("/api/ota", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "complete",
+          target: targetDevice,
+          version,
+          notes,
+          publicUrl: prepData.publicUrl,
+        }),
+      });
+      const compData = await compRes.json();
+      if (!compRes.ok) throw new Error(compData.error || "Falha ao registrar versão no banco.");
 
       const targetLabel =
         targetDevice === "apk"

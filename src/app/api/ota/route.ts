@@ -6,6 +6,82 @@ export async function POST(request: Request) {
   try {
     if (!isAdminConfigured()) return adminMisconfigured();
 
+    const contentType = request.headers.get("content-type") || "";
+
+    // MODO 1: UPLOAD DIRETO ASSINADO (SUPABASE DIRECT UPLOAD) - BYPASS LIMITE 4.5MB DA VERCEL
+    if (contentType.includes("application/json")) {
+      const body = await request.json();
+      const { action } = body;
+
+      if (!isAdminRequest(request, body.password)) {
+        return unauthorized();
+      }
+
+      const supabase = getSupabaseAdmin();
+
+      if (action === "prepare") {
+        const { target, version } = body;
+        if (!target || !version) {
+          return NextResponse.json({ error: "Alvo e versão são obrigatórios." }, { status: 400 });
+        }
+        const isApk = target === "apk" || target === "app";
+        const ext = isApk ? "apk" : "bin";
+        const prefix = isApk ? "prodash_app" : target === "m150" ? "prodash_m150" : "prodash";
+        const fileName = `${prefix}_v${version}_${Date.now()}.${ext}`;
+
+        const { data, error } = await supabase.storage.from("firmwares").createSignedUploadUrl(fileName);
+        if (error || !data) {
+          return NextResponse.json({ error: error?.message || "Erro ao criar URL assinada." }, { status: 500 });
+        }
+
+        const { data: publicUrlData } = supabase.storage.from("firmwares").getPublicUrl(fileName);
+
+        return NextResponse.json({
+          token: data.token,
+          path: data.path,
+          signedUrl: data.signedUrl,
+          publicUrl: publicUrlData.publicUrl,
+          fileName,
+        });
+      }
+
+      if (action === "complete") {
+        const { target, version, notes, publicUrl } = body;
+        if (!target || !version || !publicUrl) {
+          return NextResponse.json({ error: "Dados incompletos para finalização." }, { status: 400 });
+        }
+
+        let targetId = 1;
+        let targetName = "V46 (ESP32)";
+        if (target === "m150") {
+          targetId = 2;
+          targetName = "M150 (P4)";
+        } else if (target === "apk" || target === "app") {
+          targetId = 3;
+          targetName = "App Android (APK)";
+        }
+
+        const { error: dbError } = await supabase.from("firmware_updates").upsert({
+          id: targetId,
+          version: parseFloat(version),
+          file_url: publicUrl,
+          release_notes: notes || `Atualização ${targetName}`,
+        });
+
+        if (dbError) {
+          return NextResponse.json({ error: "Erro no banco: " + dbError.message }, { status: 500 });
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: `Atualização v${version} para ${targetName} salva com sucesso!`,
+        });
+      }
+
+      return NextResponse.json({ error: "Ação inválida." }, { status: 400 });
+    }
+
+    // MODO 2: FORM DATA CLÁSSICO (FALLBACK)
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const version = formData.get("version") as string | null;
