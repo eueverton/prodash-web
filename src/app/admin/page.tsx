@@ -129,9 +129,16 @@ export default function AdminPage() {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
-    if (!file || !file.name.endsWith(".bin")) {
-      setErrorMsg("Por favor, selecione um arquivo de Firmware (.bin) válido.");
-      return;
+    if (targetDevice === "apk") {
+      if (!file || !file.name.endsWith(".apk")) {
+        setErrorMsg("Por favor, selecione um arquivo de Aplicativo Android (.apk) válido.");
+        return;
+      }
+    } else {
+      if (!file || !file.name.endsWith(".bin")) {
+        setErrorMsg("Por favor, selecione um arquivo de Firmware (.bin) válido.");
+        return;
+      }
     }
     setLoading(true);
     const formData = new FormData();
@@ -149,7 +156,13 @@ export default function AdminPage() {
       }
       if (!res.ok) throw new Error(data.error || "Erro desconhecido");
 
-      alert(`Atualização para ${targetDevice === "m150" ? "M150 (ESP32-P4)" : "V46 (ESP32)"} lançada com SUCESSO! 🚀`);
+      const targetLabel =
+        targetDevice === "apk"
+          ? "App Android (APK)"
+          : targetDevice === "m150"
+            ? "M150 (ESP32-P4)"
+            : "V46 (ESP32)";
+      alert(`Atualização para ${targetLabel} lançada com SUCESSO! 🚀`);
       setVersion("");
       setNotes("");
       setFile(null);
