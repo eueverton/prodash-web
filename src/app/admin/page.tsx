@@ -18,9 +18,10 @@ export default function AdminPage() {
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentOtaVersion, setCurrentOtaVersion] = useState<number | null>(null);
-  const [targetDevice, setTargetDevice] = useState<"m150" | "v46">("m150");
+  const [targetDevice, setTargetDevice] = useState<"m150" | "v46" | "apk">("apk");
   const [currentV46Version, setCurrentV46Version] = useState<number | null>(null);
   const [currentM150Version, setCurrentM150Version] = useState<number | null>(null);
+  const [currentApkVersion, setCurrentApkVersion] = useState<number | null>(null);
   const [otaHistory, setOtaHistory] = useState<StorageFileItem[]>([]);
 
   const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
@@ -54,9 +55,12 @@ export default function AdminPage() {
       if (data) {
         const v46Row = data.find((r) => r.id === 1);
         const m150Row = data.find((r) => r.id === 2);
+        const apkRow = data.find((r) => r.id === 3);
         if (v46Row) setCurrentV46Version(v46Row.version);
         if (m150Row) setCurrentM150Version(m150Row.version);
-        if (targetDevice === "m150" && m150Row) setCurrentOtaVersion(m150Row.version);
+        if (apkRow) setCurrentApkVersion(apkRow.version);
+        if (targetDevice === "apk" && apkRow) setCurrentOtaVersion(apkRow.version);
+        else if (targetDevice === "m150" && m150Row) setCurrentOtaVersion(m150Row.version);
         else if (v46Row) setCurrentOtaVersion(v46Row.version);
       }
 
@@ -224,21 +228,21 @@ export default function AdminPage() {
 
             {activeTab === "ota" && (
               <div>
-                {/* Seletor de Modelo de Hardware */}
-                <div className="flex justify-center items-center gap-3 mb-6 bg-black/40 p-2 rounded-xl border border-white/10 max-w-md mx-auto">
+                {/* Seletor de Modelo de Hardware e App */}
+                <div className="flex justify-center items-center gap-2 mb-6 bg-black/40 p-2 rounded-xl border border-white/10 max-w-lg mx-auto">
                   <button
                     type="button"
                     onClick={() => {
-                      setTargetDevice("m150");
-                      if (currentM150Version) setCurrentOtaVersion(currentM150Version);
+                      setTargetDevice("apk");
+                      if (currentApkVersion) setCurrentOtaVersion(currentApkVersion);
                     }}
-                    className={`flex-1 py-2.5 px-3 rounded-lg font-orbitron text-xs font-bold transition-all text-center ${
-                      targetDevice === "m150"
+                    className={`flex-1 py-2.5 px-2 rounded-lg font-orbitron text-xs font-bold transition-all text-center ${
+                      targetDevice === "apk"
                         ? "bg-primary text-black shadow-[0_0_15px_rgba(0,255,204,0.4)]"
                         : "text-white/60 hover:text-white"
                     }`}
                   >
-                    PRODASH M150 (P4)
+                    APP ANDROID (APK)
                   </button>
                   <button
                     type="button"
@@ -246,13 +250,27 @@ export default function AdminPage() {
                       setTargetDevice("v46");
                       if (currentV46Version) setCurrentOtaVersion(currentV46Version);
                     }}
-                    className={`flex-1 py-2.5 px-3 rounded-lg font-orbitron text-xs font-bold transition-all text-center ${
+                    className={`flex-1 py-2.5 px-2 rounded-lg font-orbitron text-xs font-bold transition-all text-center ${
                       targetDevice === "v46"
                         ? "bg-primary text-black shadow-[0_0_15px_rgba(0,255,204,0.4)]"
                         : "text-white/60 hover:text-white"
                     }`}
                   >
-                    PRODASH V46 (ESP32)
+                    V46 (ESP32)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetDevice("m150");
+                      if (currentM150Version) setCurrentOtaVersion(currentM150Version);
+                    }}
+                    className={`flex-1 py-2.5 px-2 rounded-lg font-orbitron text-xs font-bold transition-all text-center ${
+                      targetDevice === "m150"
+                        ? "bg-primary text-black shadow-[0_0_15px_rgba(0,255,204,0.4)]"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    M150 (P4)
                   </button>
                 </div>
 
@@ -264,10 +282,18 @@ export default function AdminPage() {
                         VERSÃO EM PRODUÇÃO
                       </h2>
                       <div className="text-xs uppercase tracking-wider text-primary font-bold mb-3">
-                        {targetDevice === "m150" ? "TARGET: PRODASH M150 PRO (ESP32-P4)" : "TARGET: PRODASH V46 (ESP32 CLÁSSICO)"}
+                        {targetDevice === "apk"
+                          ? "TARGET: PRODASH APP ANDROID (APK)"
+                          : targetDevice === "m150"
+                          ? "TARGET: PRODASH M150 PRO (ESP32-P4)"
+                          : "TARGET: PRODASH V46 (ESP32 CLÁSSICO)"}
                       </div>
                       <div className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-primary">
-                        v{targetDevice === "m150" ? (currentM150Version || "1.0") : (currentV46Version || "--")}
+                        v{targetDevice === "apk"
+                          ? (currentApkVersion || "1.0")
+                          : targetDevice === "m150"
+                          ? (currentM150Version || "1.0")
+                          : (currentV46Version || "--")}
                       </div>
                     </div>
 
@@ -295,10 +321,14 @@ export default function AdminPage() {
                     <form onSubmit={handleUpload} className="space-y-4">
                       <div>
                         <div className="text-xs text-primary font-bold mb-2 uppercase">
-                          DESTINO: {targetDevice === "m150" ? "M150 (ESP32-P4)" : "V46 (ESP32)"}
+                          DESTINO: {targetDevice === "apk" ? "APP ANDROID (APK)" : targetDevice === "m150" ? "M150 (ESP32-P4)" : "V46 (ESP32)"}
                         </div>
                         <label className="block text-xs uppercase text-white/50 mb-1">
-                          {targetDevice === "m150" ? "Nova Versão M150 (Ex: 1.0 ou 1.1)" : "Nova Versão V46 (Ex: 48.5)"}
+                          {targetDevice === "apk"
+                            ? "Nova Versão do App (Ex: 1.1 ou 1.2)"
+                            : targetDevice === "m150"
+                            ? "Nova Versão M150 (Ex: 1.0 ou 1.1)"
+                            : "Nova Versão V46 (Ex: 48.5)"}
                         </label>
                         <input type="number" step="0.1" value={version} onChange={(e) => setVersion(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded p-2 text-white" required />
                       </div>
@@ -308,8 +338,21 @@ export default function AdminPage() {
                       </div>
                       <div className={`border-2 border-dashed rounded p-4 text-center cursor-pointer ${file ? "border-primary" : "border-white/10"}`} onClick={() => fileInputRef.current?.click()}>
                         <UploadCloud size={30} className="mx-auto mb-2 text-white/50" />
-                        <span className="text-xs text-white/70">{file ? file.name : "Selecionar .bin do Firmware"}</span>
-                        <input type="file" ref={fileInputRef} accept=".bin" onChange={(e) => { if (e.target.files?.length) setFile(e.target.files[0]); }} className="hidden" required />
+                        <span className="text-xs text-white/70">
+                          {file
+                            ? file.name
+                            : targetDevice === "apk"
+                            ? "Selecionar arquivo .apk do App"
+                            : "Selecionar .bin do Firmware"}
+                        </span>
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          accept={targetDevice === "apk" ? ".apk" : ".bin"}
+                          onChange={(e) => { if (e.target.files?.length) setFile(e.target.files[0]); }}
+                          className="hidden"
+                          required
+                        />
                       </div>
                       {errorMsg && <div className="text-red-400 text-sm text-center">{errorMsg}</div>}
                       <button type="submit" disabled={loading} className="w-full bg-primary text-black font-bold py-3 rounded transition-all hover:bg-primary/90">

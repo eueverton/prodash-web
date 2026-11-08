@@ -21,11 +21,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Arquivo ou versão faltando." }, { status: 400 });
     }
 
-    const targetId = target === "m150" ? 2 : 1;
-    const targetName = target === "m150" ? "M150 (P4)" : "V46 (ESP32)";
-    const fileName = target === "m150"
-      ? `prodash_m150_v${version}_${Date.now()}.bin`
-      : `prodash_v${version}_${Date.now()}.bin`;
+    let targetId = 1;
+    let targetName = "V46 (ESP32)";
+    let fileName = `prodash_v${version}_${Date.now()}.bin`;
+
+    if (target === "m150") {
+      targetId = 2;
+      targetName = "M150 (P4)";
+      fileName = `prodash_m150_v${version}_${Date.now()}.bin`;
+    } else if (target === "apk" || target === "app") {
+      targetId = 3;
+      targetName = "App Android (APK)";
+      fileName = `prodash_app_v${version}_${Date.now()}.apk`;
+    }
 
     const supabase = getSupabaseAdmin();
 
